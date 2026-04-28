@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
-from app.routers import documents
+from app.routers import documents, chat
 
 Base.metadata.create_all(bind=engine)
 
@@ -17,3 +17,4 @@ app.add_middleware(
 )
 
 app.include_router(documents.router, prefix="/api")
+app.include_router(chat.router, prefix="/api")
