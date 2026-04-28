@@ -14,11 +14,11 @@ describe('App', () => {
     fireEvent.change(screen.getByPlaceholderText('you@company.com'), {
       target: { value: 'user@test.com' },
     })
-    fireEvent.change(screen.getByPlaceholderText(/•{8}/), {
+    fireEvent.change(screen.getByPlaceholderText('········'), {
       target: { value: 'pass' },
     })
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
-    expect(screen.getByText('Mutual NDA Generator')).toBeInTheDocument()
+    expect(screen.getByText('Mutual NDA Assistant')).toBeInTheDocument()
   })
 })
