@@ -1,19 +1,19 @@
 import { useState } from 'react'
 import { ChatPage } from '@/components/ChatPage'
-import { NDAPreview } from '@/components/NDAPreview'
-import { NDAFormData } from '@/lib/types'
+import { DocumentPreview } from '@/components/DocumentPreview'
+import { DocumentFields } from '@/lib/types'
 
 interface HomePageProps {
   onLogout: () => void
 }
 
 export function HomePage({ onLogout }: HomePageProps) {
-  const [formData, setFormData] = useState<NDAFormData | null>(null)
+  const [formData, setFormData] = useState<DocumentFields | null>(null)
 
   if (formData) {
     return (
-      <NDAPreview
-        data={formData}
+      <DocumentPreview
+        fields={formData}
         onBack={() => setFormData(null)}
       />
     )
