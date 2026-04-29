@@ -1,10 +1,15 @@
+import { useEffect, useRef, useState } from 'react'
 import { DocumentFields, NDAFormData, PartyInfo } from '@/lib/types'
 import { renderNDA, formatDate } from '@/lib/nda-renderer'
-import { ChevronLeft, Scale, Download } from 'lucide-react'
+import { saveDocument } from '@/lib/api'
+import { ChevronLeft, Scale, Download, CheckCircle, AlertTriangle } from 'lucide-react'
 
 interface DocumentPreviewProps {
   fields: DocumentFields
+  token: string
   onBack: () => void
+  readOnly?: boolean
+  onSaved?: () => void
 }
 
 function isNDAFields(f: DocumentFields): f is NDAFormData & DocumentFields {
@@ -22,7 +27,7 @@ function toLabel(key: string): string {
     .trim()
 }
 
-export function DocumentPreview({ fields, onBack }: DocumentPreviewProps) {
+export function DocumentPreview({ fields, token, onBack, readOnly = false, onSaved }: DocumentPreviewProps) {
   const documentType = typeof fields.documentType === 'string'
     ? fields.documentType
     : 'Legal Document'
@@ -34,7 +39,20 @@ export function DocumentPreview({ fields, onBack }: DocumentPreviewProps) {
     ? fields.party2 as PartyInfo
     : null
 
-  const handlePrint = () => window.print()
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const savedRef = useRef(false)
+
+  useEffect(() => {
+    if (readOnly || savedRef.current || !token) return
+    savedRef.current = true
+    setSaveState('saving')
+    saveDocument(token, documentType, fields)
+      .then(() => {
+        setSaveState('saved')
+        onSaved?.()
+      })
+      .catch(() => setSaveState('error'))
+  }, [])
 
   const SKIP_KEYS = new Set(['party1', 'party2', 'documentType'])
   const coverFields = Object.entries(fields).filter(
@@ -50,14 +68,27 @@ export function DocumentPreview({ fields, onBack }: DocumentPreviewProps) {
           <Scale className="w-5 h-5 text-[#50E3C2] shrink-0" />
           <span className="font-semibold tracking-tight">PreLegal</span>
           <div className="ml-auto flex items-center gap-3">
+            {!readOnly && saveState === 'saving' && (
+              <span className="text-xs text-slate-400">Saving…</span>
+            )}
+            {!readOnly && saveState === 'saved' && (
+              <span className="flex items-center gap-1 text-xs text-[#50E3C2]">
+                <CheckCircle className="w-3.5 h-3.5" /> Saved
+              </span>
+            )}
+            {!readOnly && saveState === 'error' && (
+              <span className="flex items-center gap-1 text-xs text-[#FF6F61]">
+                <AlertTriangle className="w-3.5 h-3.5" /> Save failed
+              </span>
+            )}
             <button
               onClick={onBack}
               className="flex items-center gap-1.5 text-slate-300 hover:text-white text-sm font-medium transition-colors"
             >
-              <ChevronLeft className="w-4 h-4" /> Edit
+              <ChevronLeft className="w-4 h-4" /> {readOnly ? 'Back' : 'Edit'}
             </button>
             <button
-              onClick={handlePrint}
+              onClick={() => window.print()}
               className="flex items-center gap-2 bg-[#4A90E2] hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
             >
               <Download className="w-4 h-4" /> Save / Print
@@ -67,6 +98,16 @@ export function DocumentPreview({ fields, onBack }: DocumentPreviewProps) {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-8 print:p-0 print:max-w-none">
+        {/* Legal disclaimer */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 mb-6 flex items-start gap-3 print:hidden">
+          <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-800 leading-relaxed">
+            <span className="font-semibold">Draft document — for review only.</span>{' '}
+            This document is AI-generated and should be considered a starting point only. Please have it reviewed by a qualified attorney before signing or relying on it.
+          </p>
+        </div>
+
+        {/* Cover page */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 mb-6 print:rounded-none print:shadow-none print:border-none print:mb-0">
           <div className="text-center mb-10">
             <h1 className="text-2xl font-bold text-slate-900 mb-1">{documentType}</h1>
@@ -112,7 +153,7 @@ export function DocumentPreview({ fields, onBack }: DocumentPreviewProps) {
                         {party.email && <p className="text-slate-500 text-sm">{party.email}</p>}
                       </>
                     ) : (
-                      <p className="text-slate-400 text-sm italic">&mdash;</p>
+                      <p className="text-slate-400 text-sm italic">—</p>
                     )}
                   </div>
                 ))}
@@ -137,6 +178,7 @@ export function DocumentPreview({ fields, onBack }: DocumentPreviewProps) {
           )}
         </div>
 
+        {/* Standard terms body */}
         {ndaHtml ? (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 print:rounded-none print:shadow-none print:border-none print:pt-8">
             <div
@@ -154,6 +196,13 @@ export function DocumentPreview({ fields, onBack }: DocumentPreviewProps) {
             </p>
           </div>
         )}
+
+        {/* Print-only disclaimer */}
+        <div className="hidden print:block mt-8 pt-6 border-t border-slate-300">
+          <p className="text-xs text-slate-500 text-center">
+            DRAFT — This document is AI-generated and has not been reviewed by an attorney. It should not be relied upon without independent legal review.
+          </p>
+        </div>
       </div>
     </div>
   )
