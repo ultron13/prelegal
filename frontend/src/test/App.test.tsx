@@ -1,24 +1,53 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import App from '../App'
 
+vi.mock('../lib/api', () => ({
+  login: vi.fn(),
+  register: vi.fn(),
+  sendChatMessage: vi.fn(),
+  getSavedDocuments: vi.fn().mockResolvedValue([]),
+}))
+
+import { login } from '../lib/api'
+const mockLogin = login as ReturnType<typeof vi.fn>
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  localStorage.clear()
+})
+
 describe('App', () => {
-  it('starts at the login page', () => {
+  it('starts at the login page when not authenticated', () => {
     render(<App />)
-    expect(screen.getByText(/sign in to your account/i)).toBeInTheDocument()
+    expect(screen.getByText('PreLegal')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('you@company.com')).toBeInTheDocument()
   })
 
-  it('navigates to home page after login', () => {
+  it('navigates to home page after successful login', async () => {
+    mockLogin.mockResolvedValue({ access_token: 'tok123', email: 'user@test.com' })
+
     render(<App />)
 
-    fireEvent.change(screen.getByPlaceholderText('you@company.com'), {
-      target: { value: 'user@test.com' },
-    })
-    fireEvent.change(screen.getByPlaceholderText('••••••••'), {
-      target: { value: 'pass' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+    const emailInput = screen.getByPlaceholderText('you@company.com')
+    fireEvent.change(emailInput, { target: { value: 'user@test.com' } })
+    const [pwdInput] = screen.getAllByPlaceholderText('••••••••')
+    fireEvent.change(pwdInput, { target: { value: 'pass' } })
+    fireEvent.submit(emailInput.closest('form')!)
 
-    expect(screen.getByText('Legal Document Assistant')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Draft a legal document')).toBeInTheDocument()
+    })
+  })
+
+  it('restores auth state from localStorage on load', () => {
+    localStorage.setItem(
+      'prelegal_auth',
+      JSON.stringify({ token: 'stored-tok', email: 'stored@test.com' }),
+    )
+
+    render(<App />)
+    expect(screen.getByText('Draft a legal document')).toBeInTheDocument()
+    expect(screen.getByText('stored@test.com')).toBeInTheDocument()
   })
 })
